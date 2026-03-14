@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Aplicaciones de Audio - Calculadora de Tempo</title>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --cream-light: #FDF8F3;
+    --cream: #F5EDE4;
+    --cream-dark: #E8DDD0;
+    --sage-light: #C5D4C0;
+    --sage: #9BB08F;
+    --sage-dark: #7A9A6D;
+    --terracotta-light: #D4847C;
+    --terracotta: #B85C50;
+    --terracotta-dark: #8B3A30;
+    --wood-light: #D4B896;
+    --wood: #A67B5B;
+    --wood-dark: #6B4423;
+    --text-primary: #2C2420;
+    --text-secondary: #5C544D;
+    --text-muted: #8A817A;
+    --border: #D4C8BC;
+    --shadow-sm: 0 1px 3px rgba(44, 36, 32, 0.08);
+    --shadow-md: 0 4px 12px rgba(44, 36, 32, 0.12);
+    --shadow-lg: 0 8px 24px rgba(44, 36, 32, 0.16);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(135deg, var(--cream-light) 0%, var(--cream) 100%);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: linear-gradient(135deg, var(--terracotta) 0%, var(--terracotta-dark) 100%);
+    padding: 14px 24px;
+    box-shadow: var(--shadow-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .logo-text h1 { font-size: 18px; font-weight: 700; color: var(--cream-light); }
+  .logo-text span { font-size: 11px; opacity: 0.85; color: var(--cream-light); }
+
+  #settings-btn {
+    color: var(--cream-light);
+    opacity: 0.3;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  #settings-btn:hover { opacity: 1; transform: rotate(90deg); }
+
+  .app-container { max-width: 1200px; margin: 20px auto; padding: 0 16px; }
+
+  .tabs {
+    display: flex; 
+    justify-content: center;
+    flex-wrap: wrap; 
+    gap: 2px; 
+    background: var(--cream-dark);
+    padding: 4px; 
+    border-radius: var(--radius-md); 
+    margin: 0 auto 20px auto;
+    width: fit-content;
+  }
+
+  .tab-btn {
+    padding: 6px 14px; 
+    font-size: 13px; 
+    font-weight: 600; 
+    color: var(--text-secondary);
+    background: transparent; 
+    border: none; 
+    border-radius: var(--radius-sm); 
+    cursor: pointer; 
+    transition: all 0.2s ease;
+  }
+  .tab-btn.active { background: var(--cream-light); color: var(--terracotta-dark); box-shadow: var(--shadow-sm); }
+  .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.4); color: var(--text-primary); }
+
+  .tab-content { display: none; animation: slideIn 0.3s ease; }
+  .tab-content.active { display: block; }
+
+  .paned { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+  @media (max-width: 900px) { .paned { grid-template-columns: 1fr; } }
+
+  .panel-section {
+    background: white; border-radius: var(--radius-md); padding: 20px;
+    box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 20px;
+  }
+
+  .panel-section-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--cream-dark);
+  }
+  .panel-section-header h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+
+  #lbl_bpm {
+    font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 700;
+    color: var(--terracotta-dark); text-align: center; margin-bottom: 10px;
+  }
+
+  .hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 10px; }
+
+  .btn-primary {
+    background: var(--cream-light); color: var(--terracotta-dark); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-primary:hover { background: white; transform: translateY(-1px); box-shadow: var(--shadow-sm); border-color: var(--sage); }
+
+  .play-button {
+    width: 100%; background: linear-gradient(135deg, var(--sage) 0%, var(--sage-dark) 100%);
+    color: white; font-family: 'DM Sans', sans-serif; border: none; padding: 12px; font-size: 14px;
+    font-weight: 600; border-radius: var(--radius-md); transition: all 0.2s ease; cursor: pointer; margin-bottom: 16px;
+  }
+  .play-button:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .play-button.active { background: linear-gradient(135deg, var(--terracotta) 0%, var(--terracotta-dark) 100%); }
+
+  .form-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .form-row.space-between { justify-content: space-between; }
+  .form-row label { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+  input[type="number"], input[type="text"], input[type="password"], select {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--cream-light);
+    color: var(--text-primary); transition: all 0.2s ease; width: 100%;
+  }
+  input[type="number"]:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus {
+    outline: none; border-color: var(--sage); background: white; box-shadow: 0 0 0 3px rgba(155, 176, 143, 0.2);
+  }
+
+  input[type="range"] { flex: 1; height: 6px; background: var(--border); border-radius: 3px; outline: none; -webkit-appearance: none; }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; background: var(--terracotta);
+    border-radius: 50%; cursor: pointer; box-shadow: var(--shadow-sm); transition: all 0.2s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+  .btn-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 16px; }
+  .btn-group .btn-primary { min-width: 48px; padding: 6px 10px; font-size: 12px; }
+
+  table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--cream-dark); font-size: 13px; }
+  th { background: var(--cream-light); font-weight: 600; color: var(--text-secondary); }
+  td:nth-child(2), td:nth-child(3), td:nth-child(4) { font-family: 'JetBrains Mono', monospace; text-align: center; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { cursor: grab; transition: background 0.2s, transform 0.2s; }
+  tbody tr:active { cursor: grabbing; }
+  tbody tr:hover { background: var(--cream); }
+  tbody tr.selected { background: var(--sage-light); color: var(--text-primary); }
+  tbody tr.drag-over { border-top: 2px solid var(--terracotta); background: var(--cream-dark); }
+  
+  tfoot { background: var(--cream-light); font-weight: 600; }
+  tfoot td { border-top: 2px solid var(--border); font-family: 'JetBrains Mono', monospace; text-align: right; }
+
+  textarea {
+    width: 100%; height: 400px; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--cream-light); color: var(--text-primary); resize: vertical; line-height: 1.6;
+  }
+  textarea:focus { outline: none; border-color: var(--sage); background: white; }
+
+  .result-card { background: linear-gradient(135deg, var(--sage-light) 0%, var(--sage) 100%); border-radius: var(--radius-md); padding: 16px; margin-top: 16px; color: white; display:flex; flex-direction:column; align-items:center;}
+  .result-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; white-space: pre-line; text-align:center;}
+
+  .checkbox-wrapper { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .checkbox-wrapper input[type="checkbox"] { accent-color: var(--terracotta); width: 16px; height: 16px; cursor: pointer; }
+  .checkbox-wrapper span { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+  canvas { display: block; margin: 0 auto; cursor: pointer; }
+  .chart-container { width:100%; max-width:280px; margin-top:16px; }
+
+  .confidence-bar-container { width: 100%; height: 6px; background: var(--cream-dark); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+  .confidence-bar { height: 100%; width: 0%; background: var(--sage); transition: width 0.3s ease, background 0.3s ease; }
+
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(44, 36, 32, 0.5); display: none; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(2px);
+  }
+  .modal-content {
+    background: white; border-radius: var(--radius-md); padding: 24px; width: 90%;
+    max-width: 400px; box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+    animation: slideIn 0.3s ease;
+  }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-header h3 { font-size: 16px; font-weight: 700; color: var(--terracotta-dark); }
+  .modal-close { cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
+  .modal-close:hover { color: var(--terracotta); }
+  .setting-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--cream-dark); }
+  .setting-item:last-child { border-bottom: none; }
+
+  .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+  .file-input-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+
+  @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-text">
+    <h1>Aplicaciones de Audio</h1>
+    <span>Calculadora de Tempo</span>
+  </div>
+  <div id="settings-btn" onclick="app.request_password()">
+    <i data-lucide="settings"></i>
+  </div>
+</div>
+
+<div class="app-container" id="app_root">
+  <div class="tabs" id="tabs"></div>
+  <div class="tab-content" id="tab_main"></div>
+  <div class="tab-content" id="tab_calc"></div>
+  <div class="tab-content" id="tab_period"></div>
+  <div class="tab-content" id="tab_wave"></div>
+  <div class="tab-content" id="tab_storage"></div>
+  <div class="tab-content" id="tab_samples"></div>
+</div>
+
+<div id="modal-password" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Acceso Restringido</h3>
+      <div class="modal-close" onclick="app.close_modal('modal-password')"><i data-lucide="x"></i></div>
+    </div>
+    <div class="form-row">
+      <input type="password" id="sys-password" placeholder="Contraseña..." onkeydown="if(event.key==='Enter') app.verify_password()">
+    </div>
+    <p id="pwd-error" style="color:var(--terracotta); font-size:12px; display:none; margin-bottom:12px;">Contraseña incorrecta</p>
+    <button class="btn-primary" style="width:100%" onclick="app.verify_password()">Ingresar</button>
+  </div>
+</div>
+
+<div id="modal-settings" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Configuración de Pestañas</h3>
+      <div class="modal-close" onclick="app.close_modal('modal-settings')"><i data-lucide="x"></i></div>
+    </div>
+    <div id="settings-list"></div>
+  </div>
+</div>
+
+<div id="modal-song" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="song-modal-title">Canción - Titulo</h3>
+      <div class="modal-close" onclick="app.close_modal('modal-song')"><i data-lucide="x"></i></div>
+    </div>
+    <div class="form-row"><label style="width:60px">Nombre:</label><input type="text" id="song-name"></div>
+    <div class="form-row"><label style="width:60px">BPM:</label><input type="number" id="song-bpm"></div>
+    <div class="form-row"><label style="width:60px">Compás:</label><input type="text" id="song-ts" placeholder="4/4"></div>
+    <div class="form-row"><label style="width:60px">Tiempo:</label><input type="text" id="song-dur" placeholder="mm:ss"></div>
+    <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="app.save_song_modal()">Guardar Canción</button>
+  </div>
+</div>
+
+<script>
+const pwaManifest = {
+  name: "Calculadora de Tempo",
+  short_name: "TempoApp",
+  display: "standalone",
+  background_color: "#FDF8F3",
+  theme_color: "#B85C50",
+  start_url: "."
+};
+const manifestBlob = new Blob([JSON.stringify(pwaManifest)], {type: 'application/json'});
+document.head.insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(manifestBlob)}">`);
+
+const swCode = `self.addEventListener('fetch', function(e) {});`;
+const swBlob = new Blob([swCode], {type: 'application/javascript'});
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{}); }
+
+const CONFIG_FILE = "tempo_app_data_borgona_v5.json";
+
+function formatTime(secs) {
+  if (!secs) return "00:00";
+  const m = Math.floor(secs / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function parseTime(str) {
+  if (!str) return 0;
+  const parts = str.split(':');
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  return parseInt(str) || 0;
+}
+
+class AudioEngine {
+  constructor() { this.volume = 0.8; this._ctx = null; }
+  _ensure() { if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+  play_click(is_accent) {
+    this._ensure();
+    const freq = is_accent ? 1200 : 800;
+    const dur = 0.03;
+    const osc = this._ctx.createOscillator();
+    const gain = this._ctx.createGain();
+    osc.type = "sine"; osc.frequency.value = freq;
+    gain.gain.value = Math.max(0, Math.min(1, this.volume)) * 0.25;
+    osc.connect(gain); gain.connect(this._ctx.destination);
+    const t0 = this._ctx.currentTime;
+    gain.gain.setValueAtTime(gain.gain.value, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.start(t0); osc.stop(t0 + dur);
+  }
+}
+
+class MetronomeThread {
+  constructor(app_ref, audio_engine) {
+    this.app = app_ref; this.audio = audio_engine; this.running = false; this.stop_event = false;
+    this.bpm = 120.0; this.time_signature = [4, 4]; this.accent_enabled = true; this.beat_count = 0; this._timer = null;
+  }
+  run() {
+    if (this.stop_event) return;
+    if (!this.running) { this._timer = setTimeout(() => this.run(), 100); return; }
+    const start_time = performance.now();
+    const interval = 60000.0 / this.bpm;
+    const num = this.time_signature[0]; const den = this.time_signature[1];
+    let is_accent = false;
+    if (this.accent_enabled) {
+      if (den === 8) {
+        if (num === 6) is_accent = (this.beat_count % 6 === 0) || (this.beat_count % 6 === 3);
+        else if (num === 9) is_accent = (this.beat_count % 9 === 0) || (this.beat_count % 9 === 3) || (this.beat_count % 9 === 6);
+        else if (num === 12) is_accent = (this.beat_count % 3 === 0);
+        else is_accent = (this.beat_count % num === 0);
+      } else { is_accent = (this.beat_count % num === 0); }
+    }
+    this.audio.play_click(is_accent);
+    this.app.trigger_flash(is_accent);
+    this.beat_count += 1;
+    const elapsed = performance.now() - start_time;
+    this._timer = setTimeout(() => this.run(), Math.max(0, interval - elapsed));
+  }
+  start_metro() { this.beat_count = 0; this.running = true; }
+  stop_metro() { this.running = false; }
+  update_settings(bpm, ts, accent) {
+    this.bpm = bpm; const parts = ts.split("/");
+    this.time_signature = [parseInt(parts[0]), parseInt(parts[1])];
+    this.accent_enabled = accent;
+  }
+}
+
+class TempoApp {
+  constructor() {
+    this.bpm_var = 120.0; this.manual_bpm_var = "120"; this.ts_var = "4/4";
+    this.accent_var = true; this.volume_var = 80; this.metro_running = false;
+    this.tap_times = []; this.setlist_data = [];
+    this.tab_visibility = { tab_main: true, tab_calc: true, tab_period: true, tab_wave: true, tab_storage: true, tab_samples: true };
+    this.audio = new AudioEngine(); this.metro_thread = new MetronomeThread(this, this.audio);
+    this._selected_iid = null; this.dragged_index = null; this.editing_index = null;
+    this.storage_chart = null;
+
+    this.load_data(); this.create_widgets();
+    document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === "Space") { e.preventDefault(); this.on_tap(); }
+      if (e.code === "KeyR") this.reset_tap();
+    });
+    this.update_calculations(); this.metro_thread.run();
+    window.addEventListener("beforeunload", () => this.on_close());
+    setTimeout(() => lucide.createIcons(), 100);
+  }
+
+  create_widgets() {
+    this.tabs_config = [
+      { id: "tab_main", text: "Metrónomo / Lista de Reproducción", build: (p)=>this.build_main_tab(p) },
+      { id: "tab_calc", text: "Cálculos Derivados", build: (p)=>this.build_calc_tab(p) },
+      { id: "tab_period", text: "Periodo", build: (p)=>this.build_period_tab(p) },
+      { id: "tab_wave", text: "Longitud de Onda", build: (p)=>this.build_wave_tab(p) },
+      { id: "tab_storage", text: "Almacenamiento", build: (p)=>this.build_storage_tab(p) },
+      { id: "tab_samples", text: "Buffer / Retardo", build: (p)=>this.build_samples_tab(p) },
+    ];
+    this.render_tabs();
+    this.tabs_config.forEach((t) => {
+      const panel = document.getElementById(t.id); panel.innerHTML = ""; t.build(panel);
+    });
+    this._sync_ui();
+  }
+
+  render_tabs() {
+    const tabsBar = document.getElementById("tabs"); tabsBar.innerHTML = ""; let firstVisible = null;
+    this.tabs_config.forEach((t) => {
+      if (!this.tab_visibility[t.id]) { document.getElementById(t.id).classList.remove("active"); return; }
+      if (!firstVisible) firstVisible = t.id;
+      const btn = document.createElement("button"); btn.className = "tab-btn"; btn.textContent = t.text;
+      btn.onclick = () => this._activate_tab(t.id); tabsBar.appendChild(btn); t._btn = btn;
+    });
+    if (firstVisible) {
+      const currentlyActive = this.tabs_config.find(t => this.tab_visibility[t.id] && document.getElementById(t.id).classList.contains("active"));
+      if (!currentlyActive) this._activate_tab(firstVisible);
+    }
+  }
+
+  _activate_tab(id) {
+    this.tabs_config.forEach(t => {
+      if (!this.tab_visibility[t.id]) return;
+      const panel = document.getElementById(t.id); const active = (t.id === id);
+      panel.classList.toggle("active", active); if (t._btn) t._btn.classList.toggle("active", active);
+    });
+  }
+
+  build_main_tab(parent) {
+    const paned = document.createElement("div"); paned.className = "paned"; parent.appendChild(paned);
+    const left_frame = document.createElement("div"); paned.appendChild(left_frame);
+
+    const metro_card = document.createElement("div"); metro_card.className = "panel-section"; left_frame.appendChild(metro_card);
+    this.lbl_bpm = document.createElement("div"); this.lbl_bpm.id = "lbl_bpm"; this.lbl_bpm.textContent = "120 BPM"; metro_card.appendChild(this.lbl_bpm);
+    
+    this.canvas_tap = document.createElement("canvas"); this.canvas_tap.width = 140; this.canvas_tap.height = 140;
+    metro_card.appendChild(this.canvas_tap); this._ctx2d = this.canvas_tap.getContext("2d"); this.draw_tap_circle();
+    this.canvas_tap.addEventListener("click", (e) => this.on_tap(e));
+    
+    this.conf_bar = document.createElement("div"); this.conf_bar.className = "confidence-bar";
+    const conf_cont = document.createElement("div"); conf_cont.className = "confidence-bar-container"; conf_cont.appendChild(this.conf_bar);
+    metro_card.appendChild(conf_cont);
+
+    const lbl_hint = document.createElement("div"); lbl_hint.className = "hint"; lbl_hint.textContent = "Click / Espacio / 'R' para Reiniciar"; metro_card.appendChild(lbl_hint);
+
+    const ctrl_card = document.createElement("div"); ctrl_card.className = "panel-section"; left_frame.appendChild(ctrl_card);
+    this.btn_toggle = document.createElement("button"); this.btn_toggle.className = "play-button"; this.btn_toggle.textContent = "Iniciar Metrónomo";
+    this.btn_toggle.onclick = () => this.toggle_metronome(); ctrl_card.appendChild(this.btn_toggle);
+
+    const frame_vol = document.createElement("div"); frame_vol.className = "form-row"; ctrl_card.appendChild(frame_vol);
+    const volLabel = document.createElement("label"); volLabel.textContent = "Nivel:"; volLabel.style.width = "60px"; frame_vol.appendChild(volLabel);
+    const scale_vol = document.createElement("input"); scale_vol.type = "range"; scale_vol.min = "0"; scale_vol.max = "100"; scale_vol.value = String(this.volume_var);
+    scale_vol.oninput = () => { this.volume_var = parseInt(scale_vol.value, 10); this.audio.volume = this.volume_var / 100.0; };
+    frame_vol.appendChild(scale_vol);
+
+    const frame_ts = document.createElement("div"); frame_ts.className = "form-row space-between"; ctrl_card.appendChild(frame_ts);
+    const tsLeft = document.createElement("div"); tsLeft.className = "form-row"; tsLeft.style.marginBottom = "0"; frame_ts.appendChild(tsLeft);
+    const tsLabel = document.createElement("label"); tsLabel.textContent = "Compás:"; tsLeft.appendChild(tsLabel);
+    const combo_ts = document.createElement("select"); combo_ts.style.width = "auto";
+    ["2/4","3/4","4/4","5/4","6/8","7/8","9/8","12/8"].forEach(v=>{ const opt=document.createElement("option"); opt.value=v; opt.textContent=v; combo_ts.appendChild(opt); });
+    combo_ts.value = this.ts_var; combo_ts.onchange = () => { this.ts_var = combo_ts.value; this.update_calculations(); };
+    tsLeft.appendChild(combo_ts); this.combo_ts = combo_ts;
+    
+    const accentWrap = document.createElement("label"); accentWrap.className = "checkbox-wrapper";
+    const chk_accent = document.createElement("input"); chk_accent.type = "checkbox"; chk_accent.checked = !!this.accent_var;
+    chk_accent.onchange = () => { this.accent_var = chk_accent.checked; this.sync_metro_settings(); };
+    const accentTxt = document.createElement("span"); accentTxt.textContent = "Acento";
+    accentWrap.appendChild(chk_accent); accentWrap.appendChild(accentTxt); frame_ts.appendChild(accentWrap);
+
+    const manual_card = document.createElement("div"); manual_card.className = "panel-section"; left_frame.appendChild(manual_card);
+    const frame_btns = document.createElement("div"); frame_btns.className = "btn-group"; manual_card.appendChild(frame_btns);
+    [ ["/4", 0.25], ["/3", 1/3], ["/2", 0.5], ["x2", 2], ["x3", 3], ["x4", 4] ].forEach(([txt, val]) => {
+      const btn = document.createElement("button"); btn.className = "btn-primary"; btn.textContent = txt; btn.onclick = () => this.modify_bpm(val); frame_btns.appendChild(btn);
+    });
+    const frame_entry = document.createElement("div"); frame_entry.className = "form-row"; frame_entry.style.justifyContent = "center"; manual_card.appendChild(frame_entry);
+    const entry_bpm = document.createElement("input"); entry_bpm.type = "number"; entry_bpm.value = this.manual_bpm_var; entry_bpm.style.width = "100px"; entry_bpm.style.textAlign = "center";
+    entry_bpm.addEventListener("keydown", (e)=> { if (e.key === "Enter") this.apply_manual_bpm(); }); this._entry_bpm = entry_bpm; frame_entry.appendChild(entry_bpm);
+    const btn_apply = document.createElement("button"); btn_apply.className = "btn-primary"; btn_apply.textContent = "Aplicar"; btn_apply.onclick = () => this.apply_manual_bpm(); frame_entry.appendChild(btn_apply);
+
+    const right_frame = document.createElement("div"); right_frame.className = "panel-section"; paned.appendChild(right_frame);
+    const setTitle = document.createElement("div"); setTitle.className = "panel-section-header"; setTitle.innerHTML = `<i data-lucide="list-music"></i><h3>Lista de Reproducción (Drag & Drop)</h3>`; right_frame.appendChild(setTitle);
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead"); thead.innerHTML = "<tr><th>Canción / Titulo</th><th style='width:60px;'>BPM</th><th style='width:60px;'>Compás</th><th style='width:60px;'>Tiempo</th></tr>"; table.appendChild(thead);
+    this.tree = document.createElement("tbody"); table.appendChild(this.tree);
+    this.tfoot = document.createElement("tfoot"); this.tfoot.innerHTML = "<tr><td colspan='3'>Tiempo Total:</td><td id='total-time'>00:00</td></tr>"; table.appendChild(this.tfoot);
+    right_frame.appendChild(table);
+
+    const frame_crud = document.createElement("div"); frame_crud.className = "form-row space-between"; frame_crud.style.marginTop = "16px"; right_frame.appendChild(frame_crud);
+    const leftCrud = document.createElement("div"); leftCrud.className = "form-row"; frame_crud.appendChild(leftCrud);
+    const btn_add = document.createElement("button"); btn_add.className = "btn-primary"; btn_add.innerHTML = '<i data-lucide="plus" style="width:16px;"></i>'; btn_add.onclick = () => this.open_song_modal(); leftCrud.appendChild(btn_add);
+    const btn_edit = document.createElement("button"); btn_edit.className = "btn-primary"; btn_edit.innerHTML = '<i data-lucide="edit-2" style="width:16px;"></i>'; btn_edit.onclick = () => this.open_song_modal(true); leftCrud.appendChild(btn_edit);
+    const btn_del = document.createElement("button"); btn_del.className = "btn-primary"; btn_del.innerHTML = '<i data-lucide="trash-2" style="width:16px;"></i>'; btn_del.onclick = () => this.delete_song(); leftCrud.appendChild(btn_del);
+
+    const rightCrud = document.createElement("div"); rightCrud.className = "form-row"; frame_crud.appendChild(rightCrud);
+    
+    const impWrapper = document.createElement("div"); impWrapper.className = "file-input-wrapper";
+    const btn_imp = document.createElement("button"); btn_imp.className = "btn-primary"; btn_imp.innerHTML = '<i data-lucide="upload" style="width:16px;"></i>';
+    const input_file = document.createElement("input"); input_file.type = "file"; input_file.accept = ".json"; input_file.onchange = (e) => this.import_setlist(e);
+    impWrapper.appendChild(btn_imp); impWrapper.appendChild(input_file); rightCrud.appendChild(impWrapper);
+    
+    const btn_exp = document.createElement("button"); btn_exp.className = "btn-primary"; btn_exp.innerHTML = '<i data-lucide="download" style="width:16px;"></i>'; btn_exp.onclick = () => this.export_setlist(); rightCrud.appendChild(btn_exp);
+
+    this.refresh_setlist();
+  }
+
+  build_calc_tab(parent) {
+    const wrap = document.createElement("div"); wrap.className = "panel-section"; parent.appendChild(wrap);
+    const title = document.createElement("div"); title.className = "panel-section-header"; title.innerHTML = `<i data-lucide="calculator"></i><h3>Cálculos Derivados</h3>`; wrap.appendChild(title);
+    this.txt_calc = document.createElement("textarea"); this.txt_calc.readOnly = true; wrap.appendChild(this.txt_calc);
+  }
+
+  build_period_tab(parent) {
+    const wrap = document.createElement("div"); wrap.className = "panel-section"; wrap.style.maxWidth = "500px"; wrap.style.margin = "0 auto"; parent.appendChild(wrap);
+    const title = document.createElement("div"); title.className = "panel-section-header"; title.innerHTML = `<i data-lucide="timer"></i><h3>Periodo</h3>`; wrap.appendChild(title);
+    const grid = document.createElement("div"); grid.className = "grid2"; wrap.appendChild(grid);
+    
+    const f1 = document.createElement("div"); const l1 = document.createElement("label"); l1.textContent = "Frecuencia (Hz):"; l1.style.display="block"; l1.style.marginBottom="6px"; l1.style.fontSize="13px"; f1.appendChild(l1);
+    this.entry_period_freq = document.createElement("input"); this.entry_period_freq.type = "number"; f1.appendChild(this.entry_period_freq); grid.appendChild(f1);
+    
+    const f2 = document.createElement("div"); const l2 = document.createElement("label"); l2.textContent = "Tiempo:"; l2.style.display="block"; l2.style.marginBottom="6px"; l2.style.fontSize="13px"; f2.appendChild(l2);
+    const row = document.createElement("div"); row.style.display="flex"; row.style.gap="8px";
+    this.entry_period_time = document.createElement("input"); this.entry_period_time.type = "number"; this.entry_period_time.style.flex="1";
+    this.combo_period_unit = document.createElement("select"); this.combo_period_unit.style.width="80px";
+    ["ms", "s"].forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; this.combo_period_unit.appendChild(o); });
+    row.appendChild(this.entry_period_time); row.appendChild(this.combo_period_unit);
+    f2.appendChild(row); grid.appendChild(f2);
+    
+    this.entry_period_freq.oninput = () => { this.entry_period_time.value = ""; };
+    this.entry_period_time.oninput = () => { this.entry_period_freq.value = ""; };
+    this.combo_period_unit.onchange = () => { if(this.entry_period_freq.value) this.calc_period(); else if(this.entry_period_time.value) this.calc_period(); };
+    
+    const btn = document.createElement("button"); btn.className = "btn-primary"; btn.textContent = "Calcular"; btn.style.width = "100%"; btn.onclick = () => this.calc_period(); wrap.appendChild(btn);
+    const res_card = document.createElement("div"); res_card.className = "result-card"; this.lbl_period_res = document.createElement("div"); this.lbl_period_res.className = "result-value"; res_card.appendChild(this.lbl_period_res); wrap.appendChild(res_card);
+  }
+
+  calc_period() {
+    try {
+      const fStr = this.entry_period_freq.value; const tStr = this.entry_period_time.value; const unit = this.combo_period_unit.value;
+      let mult = unit === "ms" ? 1000 : 1;
+      if (fStr !== "") {
+        const f = parseFloat(fStr);
+        if(f > 0) {
+          const t = (1 / f) * mult;
+          this.entry_period_time.value = parseFloat(t.toFixed(4));
+          this.lbl_period_res.textContent = `f = ${f} Hz ↔ T = ${parseFloat(t.toFixed(4))} ${unit}`;
+        }
+      } else if (tStr !== "") {
+        const t = parseFloat(tStr);
+        if(t > 0) {
+          const f = 1 / (t / mult);
+          this.entry_period_freq.value = parseFloat(f.toFixed(4));
+          this.lbl_period_res.textContent = `f = ${parseFloat(f.toFixed(4))} Hz ↔ T = ${t} ${unit}`;
+        }
+      } else { this.lbl_period_res.textContent = ""; }
+    } catch(e){}
+  }
+
+  build_wave_tab(parent) {
+    const wrap = document.createElement("div"); wrap.className = "panel-section"; wrap.style.maxWidth = "500px"; wrap.style.margin = "0 auto"; parent.appendChild(wrap);
+    const title = document.createElement("div"); title.className = "panel-section-header"; title.innerHTML = `<i data-lucide="activity"></i><h3>Longitud de Onda</h3>`; wrap.appendChild(title);
+    const grid = document.createElement("div"); grid.className = "grid2"; wrap.appendChild(grid);
+    const f1 = document.createElement("div"); const l1 = document.createElement("label"); l1.textContent = "Frecuencia (Hz):"; l1.style.display="block"; l1.style.marginBottom="6px"; f1.appendChild(l1);
+    this.entry_freq = document.createElement("input"); this.entry_freq.type = "number"; f1.appendChild(this.entry_freq); grid.appendChild(f1);
+    const f2 = document.createElement("div"); const l2 = document.createElement("label"); l2.textContent = "Temp. (°C):"; l2.style.display="block"; l2.style.marginBottom="6px"; f2.appendChild(l2);
+    this.entry_temp = document.createElement("input"); this.entry_temp.type = "number"; this.entry_temp.value = "20"; f2.appendChild(this.entry_temp); grid.appendChild(f2);
+    const btn = document.createElement("button"); btn.className = "btn-primary"; btn.textContent = "Calcular"; btn.style.width = "100%"; btn.onclick = () => this.calc_wavelength(); wrap.appendChild(btn);
+    const res_card = document.createElement("div"); res_card.className = "result-card"; this.lbl_wave_res = document.createElement("div"); this.lbl_wave_res.className = "result-value"; res_card.appendChild(this.lbl_wave_res); wrap.appendChild(res_card);
+  }
+
+  build_storage_tab(parent) {
+    const wrap = document.createElement("div"); wrap.className = "panel-section"; wrap.style.maxWidth = "500px"; wrap.style.margin = "0 auto"; parent.appendChild(wrap);
+    const title = document.createElement("div"); title.className = "panel-section-header"; title.innerHTML = `<i data-lucide="hard-drive"></i><h3>Almacenamiento</h3>`; wrap.appendChild(title);
+    const grid = document.createElement("div"); grid.className = "grid2"; wrap.appendChild(grid);
+    const mkField = (label, el) => { const box = document.createElement("div"); const lab = document.createElement("label"); lab.textContent = label; lab.style.display="block"; lab.style.marginBottom="6px"; box.appendChild(lab); box.appendChild(el); return box; };
+    this.combo_sr = document.createElement("select"); ["44100", "48000", "96000", "192000"].forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; this.combo_sr.appendChild(o); }); this.combo_sr.value = "48000";
+    this.combo_bd = document.createElement("select"); ["16", "24", "32"].forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; this.combo_bd.appendChild(o); }); this.combo_bd.value = "24";
+    this.entry_ch = document.createElement("input"); this.entry_ch.type = "number"; this.entry_ch.value = "2";
+    this.entry_min = document.createElement("input"); this.entry_min.type = "number"; this.entry_min.value = "5";
+    grid.appendChild(mkField("Frec. Muestreo:", this.combo_sr)); grid.appendChild(mkField("Resolución (Bits):", this.combo_bd)); grid.appendChild(mkField("Canales:", this.entry_ch)); grid.appendChild(mkField("Duración (min.):", this.entry_min));
+    const btn = document.createElement("button"); btn.className = "btn-primary"; btn.textContent = "Calcular Espacio"; btn.style.width = "100%"; btn.onclick = () => this.calc_storage(); wrap.appendChild(btn);
+    
+    const res_card = document.createElement("div"); res_card.className = "result-card"; 
+    this.lbl_storage_res = document.createElement("div"); this.lbl_storage_res.className = "result-value"; res_card.appendChild(this.lbl_storage_res);
+    
+    const chart_container = document.createElement("div"); chart_container.className = "chart-container";
+    this.canvas_storage_chart = document.createElement("canvas"); chart_container.appendChild(this.canvas_storage_chart);
+    res_card.appendChild(chart_container);
+    
+    wrap.appendChild(res_card);
+  }
+
+  build_samples_tab(parent) {
+    const wrap = document.createElement("div"); wrap.className = "panel-section"; wrap.style.maxWidth = "500px"; wrap.style.margin = "0 auto"; parent.appendChild(wrap);
+    const title = document.createElement("div"); title.className = "panel-section-header"; title.innerHTML = `<i data-lucide="layers"></i><h3>Muestras</h3>`; wrap.appendChild(title);
+    
+    const topRow = document.createElement("div"); topRow.style.marginBottom = "16px";
+    const l_sr = document.createElement("label"); l_sr.textContent = "Frec. Muestreo:"; l_sr.style.display="block"; l_sr.style.marginBottom="6px"; l_sr.style.fontSize="13px";
+    this.combo_samp_sr = document.createElement("select");
+    ["44100", "48000", "96000"].forEach(v=>{ const o=document.createElement("option"); o.value=v; o.textContent=v; this.combo_samp_sr.appendChild(o); });
+    this.combo_samp_sr.value = "48000";
+    topRow.appendChild(l_sr); topRow.appendChild(this.combo_samp_sr);
+    wrap.appendChild(topRow);
+
+    const grid = document.createElement("div"); grid.className = "grid2"; wrap.appendChild(grid);
+    const mkField = (label, el) => { const box = document.createElement("div"); const lab = document.createElement("label"); lab.textContent = label; lab.style.display="block"; lab.style.marginBottom="6px"; lab.style.fontSize="13px"; box.appendChild(lab); box.appendChild(el); return box; };
+    
+    this.entry_samp_ms = document.createElement("input"); this.entry_samp_ms.type = "number";
+    this.entry_samp_buffer = document.createElement("input"); this.entry_samp_buffer.type = "number";
+    
+    this.entry_samp_ms.oninput = () => { this.entry_samp_buffer.value = ""; };
+    this.entry_samp_buffer.oninput = () => { this.entry_samp_ms.value = ""; };
+
+    grid.appendChild(mkField("Tiempo (ms):", this.entry_samp_ms)); 
+    grid.appendChild(mkField("Buffer (Muestras):", this.entry_samp_buffer));
+    
+    const btn = document.createElement("button"); btn.className = "btn-primary"; btn.textContent = "Convertir"; btn.style.width = "100%"; btn.onclick = () => this.calc_samples(); wrap.appendChild(btn);
+    const res_card = document.createElement("div"); res_card.className = "result-card"; this.lbl_samp_res = document.createElement("div"); this.lbl_samp_res.className = "result-value"; res_card.appendChild(this.lbl_samp_res); wrap.appendChild(res_card);
+  }
+
+  draw_tap_circle(color=null) {
+    if (color === null) color = "var(--cream)";
+    const ctx = this._ctx2d; if (!ctx) return;
+    ctx.clearRect(0,0,140,140); ctx.beginPath(); ctx.arc(70, 70, 60, 0, Math.PI*2);
+    ctx.fillStyle = color.startsWith("var") ? getComputedStyle(document.body).getPropertyValue(color.match(/\(([^)]+)\)/)[1]) || "#F5EDE4" : color;
+    ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border') || "#D4C8BC"; ctx.stroke();
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary') || "#2C2420";
+    ctx.font = "bold 14px 'DM Sans', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("TAP", 70, 70);
+  }
+  trigger_flash(is_accent) {
+    this.draw_tap_circle(is_accent ? "var(--terracotta)" : "var(--sage)");
+    setTimeout(() => this.draw_tap_circle(null), 50);
+  }
+  on_tap(event=null) {
+    const now = Date.now();
+    if (this.tap_times.length && (now - this.tap_times[this.tap_times.length - 1] > 2000)) this.tap_times = [];
+    this.tap_times.push(now); if (this.tap_times.length > 8) this.tap_times.shift();
+    this.trigger_flash(true);
+    if (this.tap_times.length > 2) {
+      const intervals = [];
+      for (let i = 1; i < this.tap_times.length; i++) intervals.push(this.tap_times[i] - this.tap_times[i-1]);
+      const sorted = [...intervals].sort((a,b)=>a-b);
+      const median = sorted[Math.floor(sorted.length/2)];
+      const valid = intervals.filter(x => Math.abs(x - median) < median * 0.25);
+      if(valid.length > 0) {
+        const avg = valid.reduce((a,b)=>a+b,0) / valid.length;
+        this.update_bpm(60000 / avg);
+        const conf = Math.max(0, Math.min(100, Math.round((valid.length / intervals.length) * 100)));
+        this.conf_bar.style.width = `${conf}%`;
+        this.conf_bar.style.background = conf > 75 ? "var(--sage)" : (conf > 40 ? "var(--wood)" : "var(--terracotta)");
+      }
+    }
+  }
+  reset_tap() { this.tap_times = []; this.conf_bar.style.width="0%"; if (this.lbl_bpm) this.lbl_bpm.textContent = "-- BPM"; }
+
+  toggle_metronome() {
+    this.metro_running = !this.metro_running;
+    if (this.metro_running) {
+      this.sync_metro_settings(); this.metro_thread.start_metro();
+      this.btn_toggle.textContent = "Detener Metrónomo"; this.btn_toggle.classList.add("active");
+    } else {
+      this.metro_thread.stop_metro();
+      this.btn_toggle.textContent = "Iniciar Metrónomo"; this.btn_toggle.classList.remove("active");
+    }
+  }
+  sync_metro_settings() { this.metro_thread.update_settings(this.bpm_var, this.ts_var, this.accent_var); this.update_calculations(); this.save_data(); }
+  update_bpm(bpm) {
+    bpm = Math.max(20, Math.min(300, bpm)); this.bpm_var = bpm; this.manual_bpm_var = String(Math.round(bpm));
+    if (this._entry_bpm) this._entry_bpm.value = this.manual_bpm_var;
+    if (this.lbl_bpm) this.lbl_bpm.textContent = `${Math.round(bpm)} BPM`;
+    this.sync_metro_settings();
+  }
+  modify_bpm(val) {
+    let nv = this.bpm_var; if (val===0.5) nv*=0.5; else if (val===2) nv*=2; else if (val===3) nv*=3; else if (val===4) nv*=4; else if (val===(1/3)) nv*=(1/3); else if (val===0.25) nv*=0.25;
+    this.update_bpm(nv);
+  }
+  apply_manual_bpm() { try { const v = parseFloat(this._entry_bpm ? this._entry_bpm.value : this.manual_bpm_var); if(Number.isFinite(v)) this.update_bpm(v); } catch(e){} }
+
+  refresh_setlist() {
+    if (!this.tree) return;
+    this.tree.innerHTML = ""; this._selected_iid = null; let totalSecs = 0;
+    this.setlist_data.forEach((song, i) => {
+      totalSecs += song.duration || 0;
+      const tr = document.createElement("tr"); tr.draggable = true;
+      tr.ondragstart = (e) => { this.dragged_index = i; e.dataTransfer.effectAllowed = 'move'; };
+      tr.ondragover = (e) => { e.preventDefault(); tr.classList.add('drag-over'); };
+      tr.ondragleave = (e) => { tr.classList.remove('drag-over'); };
+      tr.ondrop = (e) => {
+        e.preventDefault(); tr.classList.remove('drag-over');
+        if(this.dragged_index !== null && this.dragged_index !== i) {
+          const item = this.setlist_data.splice(this.dragged_index, 1)[0];
+          this.setlist_data.splice(i, 0, item);
+          this.save_data(); this.refresh_setlist();
+        }
+      };
+      const td1 = document.createElement("td"); td1.textContent = song.name; tr.appendChild(td1);
+      const td2 = document.createElement("td"); td2.textContent = song.bpm; tr.appendChild(td2);
+      const td3 = document.createElement("td"); td3.textContent = song.ts; tr.appendChild(td3);
+      const td4 = document.createElement("td"); td4.textContent = formatTime(song.duration); tr.appendChild(td4);
+      tr.onclick = () => { [...this.tree.querySelectorAll("tr")].forEach(x => x.classList.remove("selected")); tr.classList.add("selected"); this._selected_iid = i; };
+      tr.ondblclick = () => this.load_song();
+      this.tree.appendChild(tr);
+    });
+    document.getElementById('total-time').textContent = formatTime(totalSecs);
+  }
+
+  open_song_modal(edit=false) {
+    if(edit && this._selected_iid === null) { alert("Selecciona una canción."); return; }
+    this.editing_index = edit ? this._selected_iid : null;
+    document.getElementById('song-modal-title').textContent = edit ? "Editar Canción" : "Agregar Canción";
+    const song = edit ? this.setlist_data[this._selected_iid] : {name:"", bpm:Math.round(this.bpm_var), ts:this.ts_var, duration:0};
+    document.getElementById('song-name').value = song.name;
+    document.getElementById('song-bpm').value = song.bpm;
+    document.getElementById('song-ts').value = song.ts;
+    document.getElementById('song-dur').value = formatTime(song.duration);
+    document.getElementById('modal-song').style.display = 'flex';
+  }
+  close_modal(id) { document.getElementById(id).style.display = 'none'; }
+  save_song_modal() {
+    const name = document.getElementById('song-name').value || "Sin nombre";
+    const bpm = parseFloat(document.getElementById('song-bpm').value) || 120;
+    const ts = document.getElementById('song-ts').value || "4/4";
+    const dur = parseTime(document.getElementById('song-dur').value);
+    const nd = {name, bpm, ts, duration:dur};
+    if (this.editing_index !== null) this.setlist_data[this.editing_index] = nd; else this.setlist_data.push(nd);
+    this.save_data(); this.refresh_setlist(); this.close_modal('modal-song');
+  }
+  delete_song() { if (this._selected_iid === null) return; this.setlist_data.splice(this._selected_iid, 1); this.save_data(); this.refresh_setlist(); }
+  load_song() {
+    if (this._selected_iid === null) return; const song = this.setlist_data[this._selected_iid];
+    this.ts_var = song.ts; if (this.combo_ts) this.combo_ts.value = this.ts_var; this.update_bpm(song.bpm);
+  }
+
+  export_setlist() {
+    const b = new Blob([JSON.stringify(this.setlist_data, null, 2)], {type: 'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'setlist_borgona.json'; a.click();
+  }
+  import_setlist(e) {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { try { this.setlist_data = JSON.parse(ev.target.result); this.save_data(); this.refresh_setlist(); } catch(err){} };
+    reader.readAsText(file); e.target.value = '';
+  }
+
+  update_calculations() {
+    const bpm = this.bpm_var; const ts = this.ts_var; let num = 4, den = 4;
+    try { const p = ts.split("/"); num = parseInt(p[0], 10); den = parseInt(p[1], 10); if(!Number.isFinite(num)||!Number.isFinite(den)) throw new Error(); } catch(e){ num=4; den=4; }
+    const mb = (60000 / bpm) * (4 / den) * num;
+    const l = [`BPM: ${bpm.toFixed(2)} | Compás: ${ts}`, `Duración Compás: ${mb.toFixed(2)} ms`, "-".repeat(64), `${"Nota".padEnd(10)} ${"Normal".padEnd(12)} ${"Puntillo".padEnd(12)} ${"Tresillo".padEnd(12)} ${"Modulación - Hz".padEnd(8)}`, "-".repeat(64)];
+    [["1/1",4],["1/2",2],["1/4",1],["1/8",0.5],["1/16",0.25],["1/32",0.125]].forEach(([n, f]) => {
+      const b = (60000/bpm)*f; l.push(n.padEnd(10)+b.toFixed(2).padEnd(13)+(b*1.5).toFixed(2).padEnd(13)+(b*2/3).toFixed(2).padEnd(13)+(b>0?1000/b:0).toFixed(2).padEnd(8));
+    });
+    l.push("", "--- Reverb Estimado ---", `Room (1/4 Compás):    ${(mb*0.25).toFixed(2)} ms`, `Chamber (1/2 Compás): ${(mb*0.50).toFixed(2)} ms`, `Hall (1 Compás):      ${mb.toFixed(2)} ms`);
+    if (this.txt_calc) this.txt_calc.value = l.join("\n");
+  }
+
+  calc_wavelength() {
+    try {
+      const f=parseFloat(this.entry_freq.value); const t=parseFloat(this.entry_temp.value); if(!(f>0)) return;
+      const lam = (331.3 + (0.606 * t)) / f;
+      this.lbl_wave_res.textContent = `λ = ${lam.toFixed(4)} m\n(${(lam*100).toFixed(2)} cm)`;
+    } catch(e) { this.lbl_wave_res.textContent = "Error"; }
+  }
+
+  calc_storage() {
+    try {
+      const sr = parseInt(this.combo_sr.value, 10); const bd = parseInt(this.combo_bd.value, 10);
+      const ch = parseInt(this.entry_ch.value, 10); const mins = parseFloat(this.entry_min.value);
+      const secs = mins * 60; const bits = sr * bd * ch * secs; const bytes_val = bits / 8;
+      const mb_wav = bytes_val / (1024 * 1024); const mb_flac = mb_wav * 0.55;
+      const mb_mp3 = ((320000 * secs) / 8) / (1024 * 1024);
+      
+      this.lbl_storage_res.textContent = `WAV: ${mb_wav.toFixed(2)} MB\nFLAC: ${mb_flac.toFixed(2)} MB\nMP3 (320k): ${mb_mp3.toFixed(2)} MB`;
+      
+      const cData = [mb_wav.toFixed(2), mb_flac.toFixed(2), mb_mp3.toFixed(2)];
+      if (this.storage_chart) {
+        this.storage_chart.data.datasets[0].data = cData; this.storage_chart.update();
+      } else {
+        this.storage_chart = new Chart(this.canvas_storage_chart, {
+          type: 'pie', data: { labels: ['WAV', 'FLAC', 'MP3'], datasets: [{ data: cData, backgroundColor: ['#B85C50', '#9BB08F', '#A67B5B'], borderWidth: 1, borderColor: '#FDF8F3' }] },
+          options: { responsive: true, plugins: { legend: { labels: { color: '#FDF8F3', font: { family: "'DM Sans', sans-serif" } } } } }
+        });
+      }
+    } catch(e) { this.lbl_storage_res.textContent = "Error"; }
+  }
+
+  calc_samples() {
+    try {
+      const sr = parseInt(this.combo_samp_sr.value, 10);
+      const msStr = this.entry_samp_ms.value;
+      const bufStr = this.entry_samp_buffer.value;
+      
+      if (msStr !== "") {
+        const ms = parseFloat(msStr);
+        const samps = Math.floor((ms / 1000) * sr);
+        this.entry_samp_buffer.value = samps;
+        this.lbl_samp_res.textContent = `${samps.toLocaleString("es-AR")} Muestras ↔ ${ms.toFixed(2)} ms`;
+      } else if (bufStr !== "") {
+        const buf = parseFloat(bufStr);
+        const ms = (buf / sr) * 1000;
+        this.entry_samp_ms.value = ms.toFixed(4);
+        this.lbl_samp_res.textContent = `${buf.toLocaleString("es-AR")} Muestras ↔ ${ms.toFixed(2)} ms`;
+      } else {
+        this.lbl_samp_res.textContent = "";
+      }
+    } catch(e){}
+  }
+
+  request_password() {
+    document.getElementById("sys-password").value = ""; document.getElementById("pwd-error").style.display = "none";
+    document.getElementById("modal-password").style.display = "flex"; document.getElementById("sys-password").focus();
+  }
+  verify_password() {
+    if(document.getElementById("sys-password").value === "tictoc") { this.close_modal("modal-password"); this.open_settings(); }
+    else { document.getElementById("pwd-error").style.display = "block"; }
+  }
+
+  open_settings() {
+    const list = document.getElementById("settings-list"); list.innerHTML = "";
+    this.tabs_config.forEach(t => {
+      const item = document.createElement("label"); item.className = "checkbox-wrapper setting-item";
+      const chk = document.createElement("input"); chk.type = "checkbox"; chk.checked = this.tab_visibility[t.id];
+      chk.onchange = () => { this.tab_visibility[t.id] = chk.checked; this.save_data(); this.render_tabs(); };
+      const span = document.createElement("span"); span.textContent = `Mostrar: ${t.text}`;
+      item.appendChild(chk); item.appendChild(span); list.appendChild(item);
+    });
+    document.getElementById("modal-settings").style.display = "flex";
+  }
+
+  load_data() {
+    try {
+      const r = localStorage.getItem(CONFIG_FILE); if(!r) return; const d = JSON.parse(r);
+      this.bpm_var = d.bpm||120; this.ts_var = d.ts||"4/4"; this.accent_var = d.accent??true; this.setlist_data = d.setlist||[];
+      if(d.tab_visibility) { this.tab_visibility = d.tab_visibility; delete this.tab_visibility.tab_pitch; if(this.tab_visibility.tab_period===undefined) this.tab_visibility.tab_period=true; }
+      this.manual_bpm_var = String(Math.round(this.bpm_var)); this.audio.volume = (this.volume_var??80)/100.0;
+    } catch(e){}
+  }
+
+  save_data() {
+    try { localStorage.setItem(CONFIG_FILE, JSON.stringify({bpm:this.bpm_var, ts:this.ts_var, accent:this.accent_var, setlist:this.setlist_data, tab_visibility:this.tab_visibility})); } catch(e){}
+  }
+
+  on_close() { this.metro_thread.stop_event = true; this.save_data(); }
+
+  _sync_ui() {
+    if (this.lbl_bpm) this.lbl_bpm.textContent = `${Math.round(this.bpm_var)} BPM`;
+    if (this._entry_bpm) this._entry_bpm.value = String(Math.round(this.bpm_var));
+    if (this.combo_ts) this.combo_ts.value = this.ts_var; this.sync_metro_settings();
+  }
+}
+
+const app = new TempoApp();
+</script>
+</body>
+</html>
